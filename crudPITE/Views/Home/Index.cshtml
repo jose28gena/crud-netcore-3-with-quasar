@@ -1,0 +1,247 @@
+﻿@{
+    ViewData["Title"] = "CRUD PITE";
+
+}
+
+
+<div id="q-app">
+    <div class="q-pa-sm q-gutter-sm">
+        <q-table title="Estudiantes" :data="data" :columns="columns" row-key="name" binary-state-sort>
+            <template v-slot:top>
+                <q-btn dense color="secondary" label="Agregar" @@click="show_dialog = true" no-caps></q-btn>
+
+                <div class="q-pa-sm q-gutter-sm">
+                    <q-dialog v-model="show_dialog">
+                        <q-card>
+                            <q-card-section>
+                                <div class="text-h6">Nuevo Estudiante</div>
+                            </q-card-section>
+
+                            <q-card-section>
+                                <div class="row">
+                                    <q-input v-model="editedItem.name" label="Nombre"></q-input>
+                                    <q-input v-model="editedItem.lastName" label="Apellido"></q-input>
+                                    <q-input v-model="editedItem.age" label="Edad"></q-input>
+                                    <q-input v-model="editedItem.email" label="Correo"></q-input>
+
+                                </div>
+                            </q-card-section>
+
+                            <q-card-actions align="right">
+                                <q-btn flat label="OK" color="primary" v-close-popup @@click="addRow"></q-btn>
+                            </q-card-actions>
+                    </q-dialog>
+                </div>
+
+            </template>
+
+            <template v-slot:body="props">
+                <q-tr :props="props">
+                    <q-td key="desc" :props="props">
+                        {{ props.row.name }}
+                        <q-popup-edit v-model="props.row.name" ref="name"
+                                      :validate="proteinRangeValidation"
+                                      buttons
+                                      label-set="OK"
+                                      @@hide="proteinRangeValidation">
+                            <q-input ref="name"
+                                     v-model="props.row.name"
+                                     hint="Enter a number between 4 and 7"
+                                     label="Campo requerido *"
+                                     :error="errorProtein"
+                                     :error-message="errorMessageProtein"
+                                     dense
+                                     autofocus></q-input>
+                        </q-popup-edit>
+                    </q-td>
+                    <q-td key="lastName" :props="props">
+                        {{ props.row.lastName }}
+                        <q-popup-edit v-model="props.row.lastName" ref="lastName" title="Update lastName" buttons>
+                            <q-input v-model="props.row.lastName" dense autofocus></q-input>
+                        </q-popup-edit>
+                    </q-td>
+                    <q-td key="age" :props="props">
+                        {{ props.row.age }}
+                        <q-popup-edit v-model.number="props.row.age" ref="age">
+                            <q-input type="number" v-model="props.row.age" lazy-rules></q-input>
+                        </q-popup-edit>
+                    </q-td>
+                    <q-td key="email" :props="props">
+                        {{ props.row.email }}
+                        <q-popup-edit v-model="props.row.email" title="Update email" filled type="email" buttons persistent ref="email">
+                            <q-input v-model="props.row.email" dense autofocus hint="Use buttons to close"></q-input>
+                        </q-popup-edit>
+                    </q-td>
+
+                    <q-td key="actions" :props="props">
+                        <q-btn color="blue" label="Actualizar" @@click="editItem(props.row)" size=sm no-caps></q-btn>
+                        <q-btn color="red" label="Eliminar" @@click="deleteItem(props.row)" size=sm no-caps></q-btn>
+                    </q-td>
+                </q-tr>
+            </template>
+        </q-table>
+    </div>
+</div>
+
+@section Scripts{
+    <script src="https://cdn.jsdelivr.net/vue.resource/1.3.1/vue-resource.min.js"></script>
+    <script>
+        Vue.config.devtools = true;
+       new Vue({
+           el: "#q-app",
+             created: function () {
+                    this.$http.get('@Url.Action("get")').then(function (response) {
+                        this.data = response.body;
+                    }, function () {
+                        alert('Error!');
+                    });
+           },
+
+
+           methods: {
+
+               proteinRangeValidation(val) {
+
+                   console.log(val);
+                   if (val < 4 || val > 7) {
+                       this.errorProtein = true
+                       this.errorMessageProtein = 'The value must be between 4 and 7!'
+                       return false
+                   }
+                   this.errorProtein = false
+                   this.errorMessageProtein = ''
+                   return true
+               },
+               addRow() {
+                   var dialog=this.show_dialog;
+            if (this.editedIndex > -1) {
+                this.$http.put('@Url.Action("put")', this.editedItem, { emulateJSON: true }).then(function (response) {
+                  if (response.body.response == true) {
+                      Object.assign(this.data[this.editedIndex], this.editedItem);
+                      this.$q.notify({ type: "positive", message: `Item '${this.editedItem.name}' actualizado.`, timeout: 500 })
+                  } else {
+                      this.$q.notify({ type: "warining", message: response.body.message, timeout: 500 })
+                      dialog = true;
+                  }
+                    }, function () {
+                        alert('Error!');
+                    });
+
+      } else {
+
+
+          this.$http.post('@Url.Action("post")', this.editedItem, { emulateJSON: true }).then(function (response) {
+              //this.data = response.body;
+              console.log(response.body);
+              if (response.body.response == true) {
+                  this.data.push(this.editedItem);
+                  this.$q.notify({ type: "positive", message: `Estudiante '${this.editedItem.name}' ingresado.`, timeout: 500 })
+              } else {
+                  this.$q.notify({ type: "warining", message: response.body.message, timeout: 500 })
+                  dialog = true;
+              }
+                    }, function () {
+                        alert('Error!');
+                    });
+
+
+      }
+      this.close()
+    },
+    deleteItem(item) {
+      const index = this.data.indexOf(item);
+      confirm("Estas seguro de eliminar el registro?") &&
+            this.data.splice(index, 1);
+        console.log(item);
+        this.$http.delete('@Url.Action("")?id=' + item.id ).then(function (response) {
+            if (response.body == true) {
+                alert('Error!');
+            } else { this.$q.notify({ type: "positive", message: `Item '${item.name}' eliminado.`, timeout: 500 })}
+                    }, function () {
+                        alert('Error!');
+                    });
+    },
+        editItem(item) {
+            this.editedIndex = this.data.indexOf(item);
+            this.editedItem = Object.assign({}, item);
+            this.show_dialog = true;
+
+
+
+    },
+    close () {
+      this.show_dialog = false
+      setTimeout(() => {
+        this.editedItem = Object.assign({}, this.defaultItem)
+        this.editedIndex = -1
+      }, 300)
+    }
+  },
+  data() {
+      return {
+          errorProtein: false,
+          errorMessageProtein: '',
+      show_dialog: false,
+      editedIndex: -1,
+        editedItem: {
+            id: 0,
+        name: "",
+        lastName: "",
+        age: 0,
+        email: "",
+
+      },
+        defaultItem: {
+            id:0,
+        name: "",
+        lastName: "",
+        age: 0,
+        email: "",
+
+      },
+      columns: [
+        {
+          name: "desc",
+          required: true,
+          label: "Nombre",
+          align: "left",
+          field: row => row.name,
+          format: val => `${val}`,
+          sortable: true
+        },
+        {
+          name: "lastName",
+          align: "center",
+            label: "Apeliido",
+          field: "Apeliido",
+          sortable: true
+        },
+        {
+          name: "age",
+          label: "Edad",
+          field: "Edad",
+          sortable: true,
+          style: "width: 10px"
+        },
+          {
+              name: "email",
+              label: "Correo",
+              field: "Correo"
+          },
+
+        {
+          name: "actions",
+          label: "Actiones",
+          field: "actions"
+        }
+      ],
+      data: [
+
+      ]
+    };
+  }
+});
+
+
+    </script>
+}
